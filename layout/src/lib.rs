@@ -1,6 +1,7 @@
 use wasm_bindgen::prelude::*;
 
 const SOLVE_ITERATIONS: i32 = 100;
+const MARGIN: f32 = 0.2;
 
 #[wasm_bindgen]
 extern "C" {
@@ -42,6 +43,11 @@ fn random(counter: &mut u64) -> f32 {
     }
     *counter += 1;
     (x as u32) as f32 / (u32::MAX as f32)
+}
+
+fn soften(x: f32) -> f32 {
+    let m = x.abs();
+    x * m.powf(-0.5)
 }
 
 #[wasm_bindgen]
@@ -142,13 +148,13 @@ impl Graph {
             let lerp = step_number as f32 / step_count as f32;
             //log("========================== step");
             // Zero the stack forces array.
-            let noise_scale = 2.0 * (1.0 - lerp).powf(3.0);
+            let noise_scale = 3.0 * (1.0 - lerp).powf(3.0);
             // log(&format!("step: {} noise_scale: {}", step_number, noise_scale));
             for force in &mut stack_forces {
-                //let rx = random(&mut counter) * noise_scale;
-                //let ry = random(&mut counter) * noise_scale;
-                //*force = (noise_scale * rx, noise_scale * ry);
-                *force = (0.0, 0.0);
+                let rx = random(&mut counter) * noise_scale;
+                let ry = random(&mut counter) * noise_scale;
+                *force = (noise_scale * rx, noise_scale * ry);
+                //*force = (0.0, 0.0);
             }
 
             // === Step 1: Collision detection between stacks.
@@ -165,14 +171,14 @@ impl Graph {
                 let mut min_other_stack: SortedIndex = sorted_index;
                 while min_other_stack > 0
                     && stack_positions[x_sorted_stack_indices[min_other_stack - 1]].0
-                        > stack_positions[x_sorted_stack_indices[sorted_index]].0 - 1.0
+                        > stack_positions[x_sorted_stack_indices[sorted_index]].0 - 1.0 - MARGIN
                 {
                     min_other_stack -= 1;
                 }
                 let mut max_other_stack: SortedIndex = sorted_index;
                 while max_other_stack < stacks.len() - 1
                     && stack_positions[x_sorted_stack_indices[max_other_stack + 1]].0
-                        < stack_positions[x_sorted_stack_indices[sorted_index]].0 + 1.0
+                        < stack_positions[x_sorted_stack_indices[sorted_index]].0 + 1.0 + MARGIN
                 {
                     max_other_stack += 1;
                 }
@@ -199,7 +205,7 @@ impl Graph {
                     let us_bottom_y = us_position.1 + us_height / 2.0;
                     let them_top_y = them_position.1 - them_height / 2.0;
                     let them_bottom_y = them_position.1 + them_height / 2.0;
-                    if us_top_y > them_bottom_y || them_top_y > us_bottom_y {
+                    if us_top_y > them_bottom_y + MARGIN || them_top_y > us_bottom_y + MARGIN {
                         continue;
                     }
                     // We have an overlap. We now must resolve it.
@@ -216,21 +222,26 @@ impl Graph {
                     //   "Collision between stacks {} (at {:?}) and {} (at {:?}) dist={} scaled_dist={}",
                     //   us_stack, us_position, them_stack, them_position, distance, scaled_distance
                     //));
-                    let force = (2.0 - scaled_distance) * 0.1;
-                    stack_forces[us_stack].0 -= unit_dx * force * 2.0 * (1.0 - lerp);
-                    stack_forces[us_stack].1 -= unit_dy * force * (1.0 - lerp);
-                    stack_forces[them_stack].0 += unit_dx * force * 2.0 * (1.0 - lerp);
-                    stack_forces[them_stack].1 += unit_dy * force * (1.0 - lerp);
+                    let time_scaling = (1.0 - lerp).powf(0.3);
+                    let time_scaling_weak = (1.0 - lerp).powf(2.0);
+                    let force = (1.415 - scaled_distance) * 0.1;
+                    stack_forces[us_stack].0 -= unit_dx * force * 2.0 * time_scaling;
+                    stack_forces[us_stack].1 -= unit_dy * force * time_scaling_weak;
+                    stack_forces[them_stack].0 += unit_dx * force * 2.0 * time_scaling;
+                    stack_forces[them_stack].1 += unit_dy * force * time_scaling_weak;
                 }
             }
 
             // === Step 2: Pull on Arc edges.
             for edge in &self.edges {
                 match edge.kind {
-                    EdgeKind::Arc => {
+                    EdgeKind::Arc | EdgeKind::Stack => {
                         // Figure out the positions of the two nodes.
                         let from_stack = node_which_stack[edge.from as usize];
                         let to_stack = node_which_stack[edge.to as usize];
+                        if from_stack == to_stack {
+                            continue;
+                        }
                         let from_stack_len = stacks[from_stack].len();
                         let to_stack_len = stacks[to_stack].len();
                         let from_stack_index_within = node_index_within_stack[edge.from as usize];
@@ -250,9 +261,9 @@ impl Graph {
                         let (dx, dy) = (to_position.0 - from_position.0, to_position.1 - from_position.1);
                         let target_distance = 1.25 * lerp.powf(0.5);
                         let force_x = 0.2 * match (bottom_of_stack[edge.from as usize], dx > 0.0) {
-                            (true, _) => -dx,
-                            (_, true) => target_distance - dx,
-                            (_, false) => -target_distance - dx,
+                            (true, _) => soften(-dx),
+                            (_, true) => soften(target_distance - dx),
+                            (_, false) => soften(-target_distance - dx),
                         };
                         let target_vert_spacing = match bottom_of_stack[edge.from as usize] {
                             true => 1.25,
@@ -277,24 +288,24 @@ impl Graph {
             }
 
             // === Step 4: Subtract out the CoM, unless we're in the last half of steps.
-            // if true || step_number <= step_count / 2 {
-            //     let mut com_x = 0.0;
-            //     let mut com_y = 0.0;
-            //     let mut total_weight = 0.0;
-            //     for i in 0..stacks.len() {
-            //         let (x, y) = stack_positions[i];
-            //         let weight = stacks[i].len() as f32;
-            //         com_x += x * weight;
-            //         com_y += y * weight;
-            //         total_weight += weight;
-            //     }
-            //     com_x /= total_weight;
-            //     com_y /= total_weight;
-            //     for i in 0..stacks.len() {
-            //         stack_positions[i].0 -= com_x;
-            //         stack_positions[i].1 -= com_y;
-            //     }
-            // }
+            if true || step_number <= step_count / 2 {
+                let mut com_x = 0.0;
+                let mut com_y = 0.0;
+                let mut total_weight = 0.0;
+                for i in 0..stacks.len() {
+                    let (x, y) = stack_positions[i];
+                    let weight = stacks[i].len() as f32;
+                    com_x += x * weight;
+                    com_y += y * weight;
+                    total_weight += weight;
+                }
+                com_x /= total_weight;
+                com_y /= total_weight;
+                for i in 0..stacks.len() {
+                    stack_positions[i].0 -= com_x;
+                    stack_positions[i].1 -= com_y;
+                }
+            }
 
             // === Step 4: Enforce the bounding box.
             for i in 0..stacks.len() {
