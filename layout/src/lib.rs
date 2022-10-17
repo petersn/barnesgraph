@@ -275,7 +275,7 @@ impl Graph {
                         stack_forces[to_stack].0 += force_x * (1.0 - lerp);
                         stack_forces[to_stack].1 += force_y * (1.0 - lerp);
                     }
-                    EdgeKind::Stack | EdgeKind::Jump => {}
+                    EdgeKind::Jump => {}
                 }
             }
 
@@ -283,6 +283,8 @@ impl Graph {
             for i in 0..stacks.len() {
                 let (x, y) = stack_positions[i];
                 let (fx, fy) = stack_forces[i];
+                // We cap the movement for stability reasons.
+                let (fx, fy) = (fx.clamp(-1.0, 1.0), fy.clamp(-1.0, 1.0));
                 //log(&format!("[3] Stack {} at ({}, {}) with force ({}, {})", i, x, y, fx, fy));
                 stack_positions[i] = (x + fx, y + fy);
             }

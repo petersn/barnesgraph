@@ -74,9 +74,9 @@ class Graph extends React.PureComponent<GraphProps, {
   constructor(props: GraphProps) {
     super(props);
     this.state = {
-      stepCount: 500,
+      stepCount: 10000,
     };
-    this.updateGraphHandle(500);
+    this.updateGraphHandle(10000);
   }
 
   updateGraphHandle(steps: number) {
@@ -88,7 +88,10 @@ class Graph extends React.PureComponent<GraphProps, {
     this.layoutArray = new Float32Array(2 * this.props.nodes.length);
     this.nodeFlagsArray = new Uint8Array(this.props.nodes.length);
     this.stackIndexArray = new Uint32Array(this.props.nodes.length);
+    const start = performance.now();
     this.graphHandle.solve(steps, 10.0, 10.0, this.layoutArray, this.nodeFlagsArray, this.stackIndexArray);
+    const end = performance.now();
+    console.log('Solved in', end - start, 'ms');
     //console.log('Got:', this.graphHandle);
     //console.log('Layout:', this.layoutArray);
   }
@@ -117,8 +120,8 @@ class Graph extends React.PureComponent<GraphProps, {
       const dx = endPoint[0] - startPoint[0];
       const dy = endPoint[1] - startPoint[1];
       const angle = Math.atan2(dy, dx);
-      const arrowHeadLength = 13;
-      const arrowHeadWidth = 8;
+      const arrowHeadLength = 10;
+      const arrowHeadWidth = 7;
       const arrowHeadX = endPoint[0] - arrowHeadLength * Math.cos(angle);
       const arrowHeadY = endPoint[1] - arrowHeadLength * Math.sin(angle);
       const arrowHeadLeftX = arrowHeadX - arrowHeadWidth * Math.cos(angle + Math.PI / 2);
@@ -203,21 +206,22 @@ class Graph extends React.PureComponent<GraphProps, {
 
 function AppWithWasm() {
   const nodes = [];
-  const nodeMapping = new Map<number, number>();
-
-  for (const v of Object.values(graph.nodes)) {
-    nodeMapping.set(v.id, nodes.length);
-    nodes.push({
-      contents: <div>Node {nodes.length}</div>,
-    });
-  }
   const edges: GraphEdge[] = [];
-  for (const e of Object.values(graph.edges)) {
-    edges.push({
-      from: nodeMapping.get(e.source)!,
-      to: nodeMapping.get(e.target)!,
-      kind: 'stack',
-    });
+  for (let repetitions = 0; repetitions < 10; repetitions++) {
+    const nodeMapping = new Map<number, number>();
+    for (const v of Object.values(graph.nodes)) {
+      nodeMapping.set(v.id, nodes.length);
+      nodes.push({
+        contents: <div>Node {nodes.length}</div>,
+      });
+    }
+    for (const e of Object.values(graph.edges)) {
+      edges.push({
+        from: nodeMapping.get(e.source)!,
+        to: nodeMapping.get(e.target)!,
+        kind: 'stack',
+      });
+    }
   }
 
   return (
