@@ -74,9 +74,9 @@ class Graph extends React.PureComponent<GraphProps, {
   constructor(props: GraphProps) {
     super(props);
     this.state = {
-      stepCount: 10000,
+      stepCount: 100,
     };
-    this.updateGraphHandle(10000);
+    this.updateGraphHandle(100);
   }
 
   updateGraphHandle(steps: number) {
@@ -207,7 +207,7 @@ class Graph extends React.PureComponent<GraphProps, {
 function AppWithWasm() {
   const nodes = [];
   const edges: GraphEdge[] = [];
-  for (let repetitions = 0; repetitions < 10; repetitions++) {
+  for (let repetitions = 0; repetitions < 500; repetitions++) {
     const nodeMapping = new Map<number, number>();
     for (const v of Object.values(graph.nodes)) {
       nodeMapping.set(v.id, nodes.length);

@@ -42,6 +42,7 @@ fn random(counter: &mut u64) -> f32 {
         x ^= x >> 37;
     }
     *counter += 1;
+    //return 0.37;
     (x as u32) as f32 / (u32::MAX as f32)
 }
 
@@ -162,7 +163,10 @@ impl Graph {
             x_sorted_stack_indices.sort_by(|a, b| {
                 let a = stack_positions[*a];
                 let b = stack_positions[*b];
-                a.0.partial_cmp(&b.0).unwrap()
+                a.0.partial_cmp(&b.0).unwrap_or_else(|| {
+                    log(&format!("Bad comparison: a: {:?} b: {:?}", a, b));
+                    panic!("bad comparison")
+                })
             });
             // log(&format!("x_sorted_stack_indices: {:?}", x_sorted_stack_indices));
             // Perform the broadphase and resolve.
