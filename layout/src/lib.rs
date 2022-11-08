@@ -255,20 +255,26 @@ impl Graph {
                         //    from_stack, to_stack
                         //));
                         let mut from_position = stack_positions[from_stack];
-                        from_position.1 += (from_stack_len - 1) as f32 / -2.0 + from_stack_index_within as f32;
+                        from_position.1 +=
+                            (from_stack_len - 1) as f32 / -2.0 + from_stack_index_within as f32;
                         let mut to_position = stack_positions[to_stack];
-                        to_position.1 += (to_stack_len - 1) as f32 / -2.0 + to_stack_index_within as f32;
+                        to_position.1 +=
+                            (to_stack_len - 1) as f32 / -2.0 + to_stack_index_within as f32;
                         // There are two cases:
                         // If we are the bottom of a stack then we want to pull their x to be directly on us.
                         // If we aren't the bottom of a stack then we want to pull their x to be 1.25 on either side of us.
                         // Always pull their y to be exactly 1.25 below us.
-                        let (dx, dy) = (to_position.0 - from_position.0, to_position.1 - from_position.1);
+                        let (dx, dy) = (
+                            to_position.0 - from_position.0,
+                            to_position.1 - from_position.1,
+                        );
                         let target_distance = 1.25 * lerp.powf(0.5);
-                        let force_x = 0.2 * match (bottom_of_stack[edge.from as usize], dx > 0.0) {
-                            (true, _) => soften(-dx),
-                            (_, true) => soften(target_distance - dx),
-                            (_, false) => soften(-target_distance - dx),
-                        };
+                        let force_x = 0.2
+                            * match (bottom_of_stack[edge.from as usize], dx > 0.0) {
+                                (true, _) => soften(-dx),
+                                (_, true) => soften(target_distance - dx),
+                                (_, false) => soften(-target_distance - dx),
+                            };
                         let target_vert_spacing = match bottom_of_stack[edge.from as usize] {
                             true => 1.25,
                             false => 1.0,
