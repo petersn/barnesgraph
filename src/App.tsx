@@ -207,7 +207,7 @@ class Graph extends React.PureComponent<GraphProps, {
 function AppWithWasm() {
   const nodes = [];
   const edges: GraphEdge[] = [];
-  for (let repetitions = 0; repetitions < 500; repetitions++) {
+  for (let repetitions = 0; repetitions < 2; repetitions++) {
     const nodeMapping = new Map<number, number>();
     for (const v of Object.values(graph.nodes)) {
       nodeMapping.set(v.id, nodes.length);
